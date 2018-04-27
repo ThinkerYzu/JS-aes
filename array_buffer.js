@@ -1,4 +1,3 @@
-arraybufferMethod = function(){
   var rcon = Uint8Array.from([
     0x8d, 0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80, 0x1b, 0x36, 0x6c, 0xd8, 0xab, 0x4d, 0x9a,
     0x2f, 0x5e, 0xbc, 0x63, 0xc6, 0x97, 0x35, 0x6a, 0xd4, 0xb3, 0x7d, 0xfa, 0xef, 0xc5, 0x91, 0x39,
@@ -170,6 +169,7 @@ arraybufferMethod = function(){
     0xd7, 0xd9, 0xcb, 0xc5, 0xef, 0xe1, 0xf3, 0xfd, 0xa7, 0xa9, 0xbb, 0xb5, 0x9f, 0x91, 0x83, 0x8d
   ]);
 
+arraybufferMethod = function(){
   var key_schedule = function(key){
     var b, b0, b_real, n, out;
     var i, j, k, t;
@@ -244,90 +244,95 @@ arraybufferMethod = function(){
   };
 
   var add_round_key = function(boffset, block, offset, key){
-    var block_view = new Uint32Array(block.buffer, boffset, 4);
     offset *= 4;
     var i;
     for(i=0; i<4; ++i)
-      block_view[i] ^= key[offset+i];
+      block[boffset+i] ^= key[offset+i];
   };
   var add_round_key_inv = add_round_key;
 
-  var shift_row = function(block){
+  var shift_row = function(block, offset){
     var i, t;
 
-    t = block[1];
-    for(i=1; i<12; i+=4)
+    t = block[offset + 1];
+    for(i=offset+1; i<offset+12; i+=4)
       block[i] = block[i+4];
-    block[13] = t;
+    block[offset+13] = t;
 
-    t = block[2];
-    block[2] = block[10];
-    block[10] = t;
-    t = block[6];
-    block[6] = block[14];
-    block[14] = t;
+    t = block[offset+2];
+    block[offset+2] = block[offset+10];
+    block[offset+10] = t;
+    t = block[offset+6];
+    block[offset+6] = block[offset+14];
+    block[offset+14] = t;
 
-    t = block[15];
-    for(i=15; i>=4; i-=4)
+    t = block[offset+15];
+    for(i=offset+15; i>=offset+4; i-=4)
       block[i] = block[i-4];
-    block[3] = t;
+    block[offset+3] = t;
   };
-  var shift_row_inv = function(block){
+  var shift_row_inv = function(block, offset){
     var i, t;
 
-    t = block[13];
-    for(i=13; i>=4; i-=4)
+    t = block[offset+13];
+    for(i=offset+13; i>=offset+4; i-=4)
       block[i] = block[i-4];
-    block[1] = t;
+    block[offset+1] = t;
 
-    t = block[2];
-    block[2] = block[10];
-    block[10] = t;
-    t = block[6];
-    block[6] = block[14];
-    block[14] = t;
+    t = block[offset+2];
+    block[offset+2] = block[offset+10];
+    block[offset+10] = t;
+    t = block[offset+6];
+    block[offset+6] = block[offset+14];
+    block[offset+14] = t;
 
-    t = block[3];
-    for(i=3; i<12; i+=4)
+    t = block[offset+3];
+    for(i=offset+3; i<offset+12; i+=4)
       block[i] = block[i+4];
-    block[15] = t;
+    block[offset+15] = t;
   };
 
-  var sub_bytes = function(block){
+  var sub_bytes = function(block, offset){
     var i;
-    for(i=0; i<16; ++i)
+    for(i=offset; i<offset+16; ++i)
       block[i] = fsbox[block[i]];
   };
-  var sub_bytes_inv = function(block){
+  var sub_bytes_inv = function(block, offset){
     var i;
-    for(i=0; i<16; ++i)
+    for(i=offset; i<offset+16; ++i)
       block[i] = rsbox[block[i]];
   };
 
-  var mix_column = function(block){
-    var ori_block = new Uint8Array(block);
+  var mix_column = function(block, offset){
+    var a, b, c, d;
     var i;
-    for(i=0; i<16; i+=4){
-      block[i  ] = mul2tbl[ori_block[i]] ^ mul3tbl[ori_block[i+1]] ^         ori_block[i+2]  ^         ori_block[i+3];
-      block[i+1] =         ori_block[i]  ^ mul2tbl[ori_block[i+1]] ^ mul3tbl[ori_block[i+2]] ^         ori_block[i+3];
-      block[i+2] =         ori_block[i]  ^         ori_block[i+1]  ^ mul2tbl[ori_block[i+2]] ^ mul3tbl[ori_block[i+3]];
-      block[i+3] = mul3tbl[ori_block[i]] ^         ori_block[i+1]  ^         ori_block[i+2]  ^ mul2tbl[ori_block[i+3]];
+    for(i=offset; i<offset+16; i+=4){
+      a = mul2tbl[block[i]] ^ mul3tbl[block[i+1]] ^         block[i+2]  ^         block[i+3];
+      b =         block[i]  ^ mul2tbl[block[i+1]] ^ mul3tbl[block[i+2]] ^         block[i+3];
+      c =         block[i]  ^         block[i+1]  ^ mul2tbl[block[i+2]] ^ mul3tbl[block[i+3]];
+      d = mul3tbl[block[i]] ^         block[i+1]  ^         block[i+2]  ^ mul2tbl[block[i+3]];
+      block[i] = a;
+      block[i+1] = b;
+      block[i+2] = c;
+      block[i+3] = d;
     }
   };
-  var mix_column_inv = function(block){
-    var ori_block = new Uint8Array(block);
+  var mix_column_inv = function(block, offset){
+    var a, b, c, d;
     var i;
-    for(i=0; i<16; i+=4){
-      block[i  ] = mul14tbl[ori_block[i]] ^ mul11tbl[ori_block[i+1]] ^ mul13tbl[ori_block[i+2]] ^  mul9tbl[ori_block[i+3]];
-      block[i+1] =  mul9tbl[ori_block[i]] ^ mul14tbl[ori_block[i+1]] ^ mul11tbl[ori_block[i+2]] ^ mul13tbl[ori_block[i+3]];
-      block[i+2] = mul13tbl[ori_block[i]] ^  mul9tbl[ori_block[i+1]] ^ mul14tbl[ori_block[i+2]] ^ mul11tbl[ori_block[i+3]];
-      block[i+3] = mul11tbl[ori_block[i]] ^ mul13tbl[ori_block[i+1]] ^  mul9tbl[ori_block[i+2]] ^ mul14tbl[ori_block[i+3]];
+    for(i=offset; i<offset+16; i+=4){
+      a = mul14tbl[block[i]] ^ mul11tbl[block[i+1]] ^ mul13tbl[block[i+2]] ^  mul9tbl[block[i+3]];
+      b =  mul9tbl[block[i]] ^ mul14tbl[block[i+1]] ^ mul11tbl[block[i+2]] ^ mul13tbl[block[i+3]];
+      c = mul13tbl[block[i]] ^  mul9tbl[block[i+1]] ^ mul14tbl[block[i+2]] ^ mul11tbl[block[i+3]];
+      d = mul11tbl[block[i]] ^ mul13tbl[block[i+1]] ^  mul9tbl[block[i+2]] ^ mul14tbl[block[i+3]];
+      block[i] = a;
+      block[i+1] = b;
+      block[i+2] = c;
+      block[i+3] = d;
     }
   };
 
-  var encrypt_block = function(cipher, plain, offset, scheduled_key){
-    var plain_view8 = new Uint8Array(plain, offset, 16);
-    var cipher_view8 = new Uint8Array(cipher, offset, 16);
+  var encrypt_block = function(cipher_view8, cipher_view32, plain_view8, plain_view32, offset, scheduled_key){
     var round_end;
     if( scheduled_key.byteLength >= 240 )
       round_end = 13;
@@ -335,27 +340,24 @@ arraybufferMethod = function(){
       round_end = 11;
     else
       round_end = 9;
-    scheduled_key = new Uint32Array(scheduled_key);
     var i;
-    for(i=0; i<16; ++i)
+    for(i=offset; i< offset + 16; ++i)
       cipher_view8[i] = plain_view8[i];
 
-    add_round_key(offset, cipher_view8, 0, scheduled_key);
+    add_round_key(offset/4, cipher_view32, 0, scheduled_key);
 
     for(i=1; i<=round_end; ++i){
-      sub_bytes(cipher_view8);
-      shift_row(cipher_view8);
-      mix_column(cipher_view8);
-      add_round_key(offset, cipher_view8, i, scheduled_key);
+      sub_bytes(cipher_view8, offset);
+      shift_row(cipher_view8, offset);
+      mix_column(cipher_view8, offset);
+      add_round_key(offset/4, cipher_view32, i, scheduled_key);
     }
 
-    sub_bytes(cipher_view8);
-    shift_row(cipher_view8);
-    add_round_key(offset, cipher_view8, round_end+1, scheduled_key);
+    sub_bytes(cipher_view8, offset);
+    shift_row(cipher_view8, offset);
+    add_round_key(offset/4, cipher_view32, round_end+1, scheduled_key);
   };
-  var decrypt_block = function(plain, cipher, offset, scheduled_key){
-    var cipher_view8 = new Uint8Array(cipher, offset, 16);
-    var plain_view8 = new Uint8Array(plain, offset, 16);
+  var decrypt_block = function(plain_view8, plain_view32, cipher_view8, cipher_view32, offset, scheduled_key){
     var round_end;
     if( scheduled_key.byteLength >= 240 )
       round_end = 13;
@@ -363,23 +365,22 @@ arraybufferMethod = function(){
       round_end = 11;
     else
       round_end = 9;
-    scheduled_key = new Uint32Array(scheduled_key);
     var i;
-    for(i=0; i<16; ++i)
+    for(i=offset; i< offset + 16; ++i)
       plain_view8[i] = cipher_view8[i];
 
-    add_round_key_inv(offset, plain_view8, round_end+1, scheduled_key);
-    shift_row_inv(plain_view8);
-    sub_bytes_inv(plain_view8);
+    add_round_key_inv(offset/4, plain_view32, round_end+1, scheduled_key);
+    shift_row_inv(plain_view8, offset);
+    sub_bytes_inv(plain_view8, offset);
 
     for(i=round_end; i>=1; --i){
-      add_round_key_inv(offset, plain_view8, i, scheduled_key);
-      mix_column_inv(plain_view8);
-      shift_row_inv(plain_view8);
-      sub_bytes_inv(plain_view8);
+      add_round_key_inv(offset/4, plain_view32, i, scheduled_key);
+      mix_column_inv(plain_view8, offset);
+      shift_row_inv(plain_view8, offset);
+      sub_bytes_inv(plain_view8, offset);
     }
 
-    add_round_key_inv(offset, plain_view8, 0, scheduled_key);
+    add_round_key_inv(offset/4, plain_view32, 0, scheduled_key);
   };
 
   return {

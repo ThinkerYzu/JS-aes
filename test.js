@@ -74,11 +74,44 @@ document.querySelector('#go').onclick = function(){
       res('calculate time: ' + (done_time-prepare_time) + ' clocks');
     };
 
+    var test_typedarray = function(methodGen, key, plain, cipher, replain){
+      var begin_time = (new Date).getTime();
+      var method = methodGen();
+      var init_time = (new Date).getTime();
+      var scheduled_key = new Uint32Array(method.key_schedule(key));
+      var plain_view8 = new Uint8Array(plain);
+      var plain_view32 = new Uint32Array(plain);
+      var cipher_view8 = new Uint8Array(cipher);
+      var cipher_view32 = new Uint32Array(cipher);
+      var prepare_time = (new Date).getTime();
+      var offset;
+      var len = plain.length || plain.byteLength;
+      for(offset=0; offset<len; offset+=16){
+          method.encrypt_block(cipher_view8, cipher_view32, plain_view8, plain_view32, offset, scheduled_key);
+          method.decrypt_block(plain_view8, plain_view32, cipher_view8, cipher_view32, offset, scheduled_key);
+      }
+      var done_time = (new Date).getTime();
+      //dump(scheduled_key);
+
+      if( document.querySelector('#show').checked ){
+        res('plain text');
+        dump(plain);
+        res('cipher text');
+        dump(cipher);
+        res('plain text (decrypted)');
+        dump(replain);
+      }
+
+      res('init time: ' + (init_time-begin_time) + ' clocks');
+      res('prepare time: ' + (prepare_time-init_time) + ' clocks');
+      res('calculate time: ' + (done_time-prepare_time) + ' clocks');
+    };
+
     res('<hr><hr>vanilla');
     test(vanillaMethod, key, plain, new Array(plain.length), new Array(plain.length));
 
     res('<hr><hr>array_buffer');
-    test(arraybufferMethod, key_arraybuffer, plain_arraybuffer, new ArrayBuffer(plain_arraybuffer.byteLength), new ArrayBuffer(plain_arraybuffer.byteLength));
+    test_typedarray(arraybufferMethod, key_arraybuffer, plain_arraybuffer, new ArrayBuffer(plain_arraybuffer.byteLength), new ArrayBuffer(plain_arraybuffer.byteLength));
 
     res('<hr><hr>asm');
     test(asmMethod, key, plain, new Array(plain.length), new Array(plain.length));
